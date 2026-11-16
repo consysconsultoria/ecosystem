@@ -1,0 +1,44 @@
+{
+    "name": "consys/ecosystem",
+    "description": "Shared integration of the Consys apps with the admin directory and the Consys login.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.3",
+        "laravel/framework": "^12.0|^13.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24",
+        "orchestra/testbench": "^10.0|^11.0",
+        "pestphp/pest": "^3.0|^4.0|^5.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Consys\\Ecosystem\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Consys\\Ecosystem\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Consys\\Ecosystem\\EcosystemServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "format": "pint"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
