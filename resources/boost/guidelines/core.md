@@ -163,7 +163,7 @@ Projetos novos nascem com esta stack; projetos existentes seguem as versões do 
 
 ## Git
 
-- Mensagens de commit curtas, em inglês, tudo em minúsculas, imperativo, sem ponto final: `add tenant isolation tests`. Corpo opcional com bullets `- `. Trailers (`Co-Authored-By:`) mantêm a capitalização padrão.
+- Mensagens de commit curtas, em inglês, tudo em minúsculas, imperativo, sem ponto final: `add tenant isolation tests`. Corpo opcional com bullets `- `. Nunca adicione `Co-Authored-By:` nem qualquer atribuição ao Claude ou a outra IA em commits e PRs.
 - Só faça commit ou push quando pedido.
 
 ## Comportamento do Agente
