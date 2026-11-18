@@ -15,8 +15,13 @@ final class ErrorReport
 {
     public const int MAX_FRAMES = 30;
 
+    public const int MAX_CONTEXT_KEYS = 20;
+
+    public const int MAX_CONTEXT_LENGTH = 500;
+
     /**
      * @param  list<array{file: ?string, line: ?int, call: ?string}>  $trace
+     * @param  array<string, scalar|null>  $context
      */
     private function __construct(
         public readonly string $fingerprint,
@@ -32,6 +37,7 @@ final class ErrorReport
         public readonly string $environment,
         public readonly ?string $version,
         public readonly string $occurredAt,
+        public readonly array $context = [],
     ) {}
 
     public static function fromThrowable(Throwable $exception, ?Request $request = null): self
@@ -54,6 +60,7 @@ final class ErrorReport
             environment: app()->environment(),
             version: Release::version(),
             occurredAt: now()->toIso8601String(),
+            context: self::context($exception),
         );
     }
 
@@ -76,6 +83,7 @@ final class ErrorReport
             'environment' => $this->environment,
             'version' => $this->version,
             'occurred_at' => $this->occurredAt,
+            'context' => $this->context,
         ];
     }
 
@@ -151,7 +159,45 @@ final class ErrorReport
         }
     }
 
-    private static function scrub(string $message): string
+    /**
+     * What the exception tells about itself through its context() method, as short scalars,
+     * with anything that looks like a secret left out.
+     *
+     * @return array<string, scalar|null>
+     */
+    private static function context(Throwable $exception): array
+    {
+        if (! method_exists($exception, 'context')) {
+            return [];
+        }
+
+        try {
+            $context = $exception->context();
+        } catch (Throwable) {
+            return [];
+        }
+
+        if (! is_array($context)) {
+            return [];
+        }
+
+        $clean = [];
+
+        foreach (array_slice($context, 0, self::MAX_CONTEXT_KEYS, true) as $key => $value) {
+            $key = (string) $key;
+
+            $clean[$key] = match (true) {
+                (bool) preg_match('/pass|secret|token|key|authorization|cookie/i', $key) => '[filtered]',
+                is_string($value) => self::scrub(mb_substr($value, 0, self::MAX_CONTEXT_LENGTH)),
+                is_scalar($value) || $value === null => $value,
+                default => self::scrub(mb_substr((string) json_encode($value), 0, self::MAX_CONTEXT_LENGTH)),
+            };
+        }
+
+        return $clean;
+    }
+
+    public static function scrub(string $message): string
     {
         return (string) preg_replace('/\b(password|passwd|secret|token|api_key|authorization)(["\'\s]*[:=]\s*["\']?)[^\s"\',)]+/i', '$1$2[filtered]', $message);
     }

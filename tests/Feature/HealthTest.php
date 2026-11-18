@@ -98,3 +98,25 @@ it('answers during maintenance and says so', function (): void {
         $this->artisan('up');
     }
 });
+
+it('adds the system, the database tables and the latest log when the admin asks for the details', function (): void {
+    DB::statement('create table boletins (id integer primary key)');
+    @mkdir(storage_path('logs'), 0777, true);
+    file_put_contents(storage_path('logs/laravel.log'), "[2026-11-18] production.ERROR: Broke password=hunter2\n");
+
+    $timestamp = (string) now()->timestamp;
+
+    $this->get('/consys/health?details=1', [
+        'Accept' => 'application/json',
+        'X-Consys-Timestamp' => $timestamp,
+        'X-Consys-Signature' => 'sha256='.hash_hmac('sha256', $timestamp.'.', 'directory-secret'),
+    ])
+        ->assertOk()
+        ->assertJsonPath('details.system.php', PHP_VERSION)
+        ->assertJsonPath('details.database.driver', 'sqlite')
+        ->assertJsonPath('details.logs.tail_file', 'laravel.log')
+        ->assertJsonPath('details.logs.tail.0', '[2026-11-18] production.ERROR: Broke password=[filtered]')
+        ->assertJson(fn ($json) => $json->where('details.database.tables', fn ($tables) => collect($tables)->pluck('name')->contains('boletins'))->etc());
+
+    requestHealth()->assertJsonMissingPath('details');
+});

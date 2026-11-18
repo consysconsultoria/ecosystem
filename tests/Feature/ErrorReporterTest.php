@@ -117,3 +117,20 @@ function failAt(string $message): RuntimeException
 {
     return new RuntimeException($message);
 }
+
+it('sends what an exception tells about itself, without its secrets', function (): void {
+    $exception = new class('Refused') extends RuntimeException
+    {
+        public function context(): array
+        {
+            return ['phone' => '5511999990000', 'instance' => 7, 'api_token' => 'abc', 'payload' => ['a' => 1]];
+        }
+    };
+
+    expect(ErrorReport::fromThrowable($exception)->toArray()['context'])->toBe([
+        'phone' => '5511999990000',
+        'instance' => 7,
+        'api_token' => '[filtered]',
+        'payload' => '{"a":1}',
+    ]);
+});
