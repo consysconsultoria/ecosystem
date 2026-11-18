@@ -5,9 +5,14 @@ namespace Consys\Ecosystem;
 use Consys\Ecosystem\Console\SyncDirectoryCommand;
 use Consys\Ecosystem\Contracts\ConsysSignIn;
 use Consys\Ecosystem\Contracts\DirectoryMirror;
+use Consys\Ecosystem\Monitor\ErrorReporter;
+use Consys\Ecosystem\Monitor\HealthReport;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use LogicException;
+use Throwable;
 
 class EcosystemServiceProvider extends ServiceProvider
 {
@@ -31,6 +36,18 @@ class EcosystemServiceProvider extends ServiceProvider
 
             $this->commands([SyncDirectoryCommand::class]);
         }
+
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
+            $schedule->call(HealthReport::recordSchedulerHeartbeat(...))->everyMinute()->name('consys:monitor-heartbeat');
+        });
+
+        $this->callAfterResolving(ExceptionHandler::class, function (ExceptionHandler $handler): void {
+            if (method_exists($handler, 'reportable')) {
+                $handler->reportable(function (Throwable $exception): void {
+                    $this->app->make(ErrorReporter::class)->report($exception);
+                });
+            }
+        });
     }
 
     /**

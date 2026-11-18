@@ -24,6 +24,8 @@ abstract class TestCase extends Orchestra
     protected function defineEnvironment($app): void
     {
         $app['config']->set([
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => ':memory:',
             'consys.auth.mode' => 'optional',
             'consys.auth.url' => 'https://auth.test/',
             'consys.auth.client_id' => 'erp-client',
@@ -39,10 +41,16 @@ abstract class TestCase extends Orchestra
         $app->bind(ConsysSignIn::class, FakeSignIn::class);
     }
 
+    protected function defineDatabaseMigrations(): void
+    {
+        $this->loadLaravelMigrations();
+    }
+
     protected function defineRoutes($router): void
     {
         Route::middleware('web')->group(function (): void {
             Consys::webhookRoute();
+            Consys::healthRoute();
             Consys::authRoutes();
             Consys::logoutRoute();
 

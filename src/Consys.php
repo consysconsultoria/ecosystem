@@ -4,8 +4,10 @@ namespace Consys\Ecosystem;
 
 use Consys\Ecosystem\Http\Controllers\ConsysAuthController;
 use Consys\Ecosystem\Http\Controllers\DirectoryWebhookController;
+use Consys\Ecosystem\Http\Controllers\HealthController;
 use Consys\Ecosystem\Http\Middleware\VerifyDirectorySignature;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route as RoutingRoute;
@@ -29,6 +31,20 @@ final class Consys
 
     public const string WEBHOOK_ROUTE = 'webhooks.directory';
 
+    public const string HEALTH_ROUTE = 'consys.health';
+
+    /**
+     * @var list<string|class-string>
+     */
+    private const array STATELESS_EXCLUDED_MIDDLEWARE = [
+        'web',
+        StartSession::class,
+        AuthenticateSession::class,
+        ShareErrorsFromSession::class,
+        VerifyCsrfToken::class,
+        PreventRequestForgery::class,
+    ];
+
     /**
      * The webhook the admin delivers the directory to. It runs without session or CSRF even
      * inside the web group, since the admin authenticates it by its signature.
@@ -37,15 +53,22 @@ final class Consys
     {
         return Route::post($uri, DirectoryWebhookController::class)
             ->middleware(VerifyDirectorySignature::class)
-            ->withoutMiddleware([
-                'web',
-                StartSession::class,
-                AuthenticateSession::class,
-                ShareErrorsFromSession::class,
-                VerifyCsrfToken::class,
-                PreventRequestForgery::class,
-            ])
+            ->withoutMiddleware(self::STATELESS_EXCLUDED_MIDDLEWARE)
             ->name(self::WEBHOOK_ROUTE);
+    }
+
+    /**
+     * The state of the app and of its server, read every minute by the admin's monitor. Signed
+     * like the webhook (over an empty body) and stateless, so it answers in maintenance too.
+     */
+    public static function healthRoute(string $uri = '/consys/health'): RoutingRoute
+    {
+        PreventRequestsDuringMaintenance::except($uri);
+
+        return Route::get($uri, HealthController::class)
+            ->middleware(VerifyDirectorySignature::class)
+            ->withoutMiddleware(self::STATELESS_EXCLUDED_MIDDLEWARE)
+            ->name(self::HEALTH_ROUTE);
     }
 
     /**

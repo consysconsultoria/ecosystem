@@ -69,6 +69,9 @@ To work on the package and a host at the same time, point the host at a local ch
 | `consys.directory.secret` | `CONSYS_DIRECTORY_SECRET` | | Subscriber secret: signs the webhooks and is the Bearer token of the download |
 | `consys.directory.tolerance_seconds` | | `300` | Maximum age (and clock skew) of a webhook timestamp |
 | `consys.directory.mirror` | | `null` | Class implementing `DirectoryMirror`, when not bound in a provider |
+| `consys.monitor.report_errors` | `CONSYS_MONITOR_REPORT_ERRORS` | `true` | Sends the reported exceptions to the admin (only when the admin URL, the secret and the application are set) |
+| `consys.monitor.version` | `CONSYS_VERSION` | | Version shown in the monitor; without it, the git commit or the Forge release folder |
+| `consys.monitor.errors_per_minute` | | `10` | Most reports of the same error sent per minute |
 
 ```dotenv
 CONSYS_AUTH_MODE=optional
@@ -143,6 +146,8 @@ Route::middleware(['guest', 'throttle:20,1'])->group(function (): void {
 Consys::logoutRoute()->middleware('throttle:30,1');
 
 Consys::webhookRoute();
+
+Consys::healthRoute();
 ```
 
 | Helper | Default URI | Name |
@@ -150,11 +155,20 @@ Consys::webhookRoute();
 | `Consys::authRoutes(string $prefix = '/auth/consys')` | `GET {prefix}/redirect`, `GET {prefix}/callback` | `auth.consys.redirect`, `auth.consys.callback` |
 | `Consys::logoutRoute(string $uri = '/auth/consys/logout')` | `GET` | `auth.consys.logout` |
 | `Consys::webhookRoute(string $uri = '/webhooks/directory')` | `POST` | `webhooks.directory` |
+| `Consys::healthRoute(string $uri = '/consys/health')` | `GET` | `consys.health` |
 
 - The webhook removes the `web` group, the session and the CSRF middleware from itself, so it works from `routes/web.php` without a `validateCsrfTokens(except:)` entry and without starting a session. It is protected by `VerifyDirectorySignature`.
 - The auth routes need the session: keep them in the `web` group. The callback URL sent to the login is `route('auth.consys.callback')`, so do not add a name prefix to these routes, and register that absolute URL as the redirect URI of the Passport client.
 - The logout route is called by the Consys login from the browser (a hidden frame on its signed-out page). Keep it out of `guest`.
 - `authRoutes()` returns `['redirect' => Route, 'callback' => Route]` and the other two helpers return the `Route`, so more middleware or constraints can be chained.
+
+## Monitor
+
+The admin's monitor reads every app once a minute and keeps the errors they report.
+
+- **Health**: `Consys::healthRoute()` answers the admin with the app (environment, PHP, Laravel, version, deploy time, maintenance, storage), the database (reachable, latency), the queue (pending jobs, how long the oldest waits, failed jobs in the last day), the scheduler (last heartbeat) and the server (hostname, CPUs, load, memory, disk, uptime, read from `/proc`). It is signed like the webhook, over an empty body, stateless and answers during maintenance. A check that fails reports its `error` and the others still answer.
+- **Scheduler heartbeat**: the package schedules `consys:monitor-heartbeat` every minute, so the host only needs its usual `schedule:run` cron.
+- **Errors**: every exception the host reports (not 404, validation and the rest Laravel leaves out) is queued as `SendErrorReport` and posted to `{admin_url}/api/v1/monitor/errors` with the secret as Bearer token. When the queue cannot take it (database down) it is sent right away. The report carries the class, the message with passwords and tokens filtered, the first frame in the app's own code (the grouping fingerprint), 30 trace frames without arguments, the URL without the query string or the artisan command without its arguments, the user id and the version. Failed deliveries are retried twice and then dropped; the reporter never throws.
 
 ## Other helpers
 

@@ -19,4 +19,10 @@ return [
         'mirror' => null,
     ],
 
+    'monitor' => [
+        'report_errors' => (bool) env('CONSYS_MONITOR_REPORT_ERRORS', true),
+        'version' => env('CONSYS_VERSION'),
+        'errors_per_minute' => 10,
+    ],
+
 ];
