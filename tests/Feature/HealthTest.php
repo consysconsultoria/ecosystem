@@ -33,7 +33,7 @@ it('answers the admin with the state of the app and of its server', function ():
             'database' => ['driver', 'latency_ms', 'error'],
             'queue' => ['oldest_wait_seconds', 'failed_last_day', 'error'],
             'scheduler' => ['last_run_at'],
-            'server' => ['hostname', 'cpus', 'load', 'memory_total', 'memory_available', 'disk_total', 'disk_free', 'uptime_seconds'],
+            'server' => ['hostname', 'cpus', 'cpu_used_percent', 'load', 'memory_total', 'memory_available', 'disk_total', 'disk_free', 'uptime_seconds'],
         ]);
 });
 
